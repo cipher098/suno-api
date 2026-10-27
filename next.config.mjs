@@ -8,6 +8,7 @@ const nextConfig = {
     return config;
   },
   experimental: {
+    cpus: 2,
     serverMinification: false, // the server minification unfortunately breaks the selector class names
   },
 };  

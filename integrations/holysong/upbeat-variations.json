@@ -1,0 +1,25 @@
+{
+  "genre": "upbeat",
+  "version": 1,
+  "scoring_method": "full-track-duration-weighted-10s-v1",
+  "provider_model": "v6",
+  "policy": {
+    "exploration_fraction": 0.25,
+    "shrinkage_chapters": 3,
+    "human_gain": 0.75,
+    "machine_gain": 0.15,
+    "pending_lyric_evidence_weight": 0.25,
+    "recent_treatment_multiplier": 0.5,
+    "note": "Operational heuristics, not validated probabilities of listener enjoyment or evidence of causal improvement."
+  },
+  "variations": [
+    {"id":"guitar_solo","label":"Guitar-led solo","status":"tested","lyric_mode":"canonical_once","direction":"Rhythmic acoustic guitar foreground, warm piano support, buoyant bass and restrained drums. Choose a clear lead register appropriate to the passage."},
+    {"id":"alternating_duet","label":"Alternating duet","status":"tested","lyric_mode":"canonical_once","direction":"Distinct male and female singers alternate suitable passages; selective simultaneous harmony. Save role assignments and avoid echoing scripture by default."},
+    {"id":"piano_solo","label":"Piano-led solo with dynamic arc","status":"tested","lyric_mode":"canonical_once","direction":"Bright rhythmic piano foreground, quiet guitar accents, clear solo lead, lighter dense passage and a fuller final lift."},
+    {"id":"scripture_refrain","label":"Scripture refrain and responses","status":"tested","lyric_mode":"scripture_repetition","direction":"Full chapter with an exact scripture phrase returning as a refrain; supporting responses and harmony where useful. Save the explicit performance lyrics and allowed repetitions before generation."},
+    {"id":"suno_freedom","label":"Suno-led composition","status":"tested","lyric_mode":"canonical_once","direction":"Give V6 freedom over melody, groove, instruments and singers within warm buoyant devotional folk-pop. Supply the complete chapter. Do not claim autonomous refrain selection: the earlier Advanced-mode test did not demonstrate it. Repetition still requires an explicit run-level mode."},
+    {"id":"gentle_shuffle","label":"Gentle shuffle","status":"untested","lyric_mode":"canonical_once","direction":"Light swung acoustic/piano groove, restrained percussion, clear unhurried scripture phrasing and buoyant forward motion. Experimental treatment within Upbeat; verify genre fit."},
+    {"id":"percussion_lift","label":"Percussion-led lift","status":"untested","lyric_mode":"canonical_once","direction":"Tasteful shaker, tambourine and hand percussion give rhythmic identity, supported by acoustic guitar, piano and melodic bass. Keep the vocal clear and avoid relentless density."},
+    {"id":"solo_harmony","label":"Solo with selective harmony","status":"untested","lyric_mode":"canonical_once","direction":"One stable lead singer; a supporting voice adds simultaneous harmony only at selected musical lifts. No repeated words by default; save singer roles and section assignments."}
+  ]
+}

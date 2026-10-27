@@ -37,3 +37,9 @@ yarn-error.log*
 next-env.d.ts
 
 .idea
+
+# Local tooling and private account evidence
+.serena/
+__pycache__/
+*.pyc
+*.har

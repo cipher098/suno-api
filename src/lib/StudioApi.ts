@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import cleanTemplate from './studio-clean-template.json';
 
 /** Experimental Studio wire API. Shares the caller's Suno session; never retries POSTs. */
 export type StudioRequest = (path: string, method: 'GET' | 'POST', data?: unknown) => Promise<any>;
@@ -33,7 +34,7 @@ export interface StudioExportInput {
   clip_id: string;
   duration_seconds: number;
   /** Current Studio state containing an audio track/clip to use as a schema template. */
-  state: Record<string, any>;
+  state?: Record<string, any>;
   title?: string;
   lyrics?: string;
   tags?: string;
@@ -44,8 +45,9 @@ export function fullSongState(input: StudioExportInput) {
   studioId(input.project_id); studioId(input.clip_id);
   requireInput(typeof input.duration_seconds === 'number' && Number.isFinite(input.duration_seconds) &&
     input.duration_seconds > 0 && input.duration_seconds <= 480, 'INVALID_DURATION');
-  requireInput(input.state && Array.isArray(input.state.tracks), 'INVALID_STATE');
-  const state = JSON.parse(JSON.stringify(input.state));
+  const template = input.state ?? cleanTemplate.state;
+  requireInput(template && Array.isArray(template.tracks), 'INVALID_STATE');
+  const state = JSON.parse(JSON.stringify(template));
   const track = state.tracks.find((item: any) => item?.type === 'audio' && Array.isArray(item.clips) && item.clips.length);
   requireInput(track, 'AUDIO_CLIP_TEMPLATE_REQUIRED');
   const clip = track.clips[0];
@@ -74,6 +76,13 @@ export class StudioApi {
   }
 
   public async getProject(id: string) { return this.ownedProject(id); }
+
+  public account() { return { accountId: this.userId(), templateVersion: 'studio-clean-v1', apiVersion: 1 }; }
+  public async billing() { return this.request('billing/info/', 'GET'); }
+  public async check() { return this.request('c/check', 'POST', { ctype: 'generation' }); }
+  public async alignment(id: string) {
+    return this.request(`studio-alignment/${studioId(id)}`, 'GET');
+  }
 
   public async generate(input: StudioGenerateInput) {
     const projectId = studioId(input.project_id);

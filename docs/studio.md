@@ -21,7 +21,7 @@ control layer. Never expose a credential-backed instance publicly without one.
 | GET | `/api/studio/project?id=PROJECT_UUID` | Owned project metadata; foreign ownership is rejected. |
 | POST | `/api/studio/generate` | `project_id`, `prompt` (lyrics), `tags` (style), optional `title`, `model`. Returns provider generation response with `clips[].id`. |
 | GET | `/api/studio/status?ids=UUID,UUID` | Provider feed response including clip statuses, metadata and moderation errors. |
-| POST | `/api/studio/export` | `project_id`, `clip_id`, `duration_seconds`, `state`, optional `title`, `lyrics`, `tags`. Returns rendered recording `id`. |
+| POST | `/api/studio/export` | `project_id`, `clip_id`, `duration_seconds`, optional `state`, `title`, `lyrics`, `tags`. Returns rendered recording `id`. |
 | GET | `/api/studio/download?id=RENDER_UUID` | Provider download-preparation status and eventual signed `download_url`, M4A only. |
 
 `generate` defaults to the observed provider identifier `chirp-hawk`; this is not
@@ -66,7 +66,7 @@ track with at least one clip; it supplies the version-sensitive track/clip schem
 Obtain it from your own project/state or a locally inspected Studio render request.
 Do not commit HARs: they contain cookies, bearer tokens and signed URLs. Project
 response shapes may change; project lookup is not a guarantee that the response
-itself contains a render-ready state. No account-specific template is bundled.
+itself contains a render-ready state. A clean account-independent template is bundled as the default when `state` is omitted. Custom `state` remains supported.
 
 ```json
 {
@@ -113,6 +113,22 @@ polling, pending downloads and signed-destination validation.
 The underlying Python prototype previously generated, rendered and downloaded a
 complete track and retrieved its exported alignment on an authenticated account.
 This TypeScript integration is covered by offline tests and read-only checks;
-no additional paid generation/render was made for the contribution. The caller
-must supply a current state template; end-to-end compatibility across accounts,
+no additional paid generation/render was made for the contribution. The default clean template is based on the Python prototype; end-to-end compatibility across accounts,
 Suno versions and templates remains experimental.
+
+## Local account servers and clean-schema export
+
+The optional [HolySong integration](../integrations/holysong/README.md) adds one
+loopback server per account and isolated `-auto` commands. Account mode is opted
+in with `SUNO_API_ACCOUNT_MODE=1` and a long `SUNO_API_LOCAL_TOKEN`. It requires
+the matching local Bearer token and rejects request Cookie/Origin overrides.
+The launcher binds 127.0.0.1; do not expose an instance to the network.
+
+Additional Studio routes: GET `account` (authenticated account ID and API version),
+`billing`, `check` (read-only CAPTCHA requirement check), and `alignment?id=UUID`
+(raw exported word alignment). They use the same repo Suno session.
+
+`export.state` is now optional: omitting it uses `studio-clean-template.json`,
+with no account IDs, saved project data or effects. The API still validates
+project ownership, completed source and duration. Explicit custom state remains
+backward compatible. Internal-provider schema compatibility needs ongoing testing.

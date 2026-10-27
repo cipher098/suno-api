@@ -134,7 +134,9 @@ class SunoApi {
       try {
         await this.keepAlive();
         const response = await this.client.request({
-          url: `https://suno.com/a/api/${apiPath}`, method, data,
+          url: apiPath.startsWith('studio-alignment/')
+            ? `https://studio-api.prod.suno.com/api/gen/${apiPath.split('/')[1]}/aligned_lyrics/v2/`
+            : `https://suno.com/a/api/${apiPath}`, method, data,
           headers: { Origin: 'https://suno.com', Referer: 'https://suno.com/studio' },
           timeout: 45000, maxRedirects: 0
         });
@@ -876,7 +878,7 @@ class SunoApi {
 }
 
 export const sunoApi = async (cookie?: string) => {
-  const resolvedCookie = cookie && cookie.includes('__client') ? cookie : process.env.SUNO_COOKIE; // Check for bad `Cookie` header (It's too expensive to actually parse the cookies *here*)
+  const resolvedCookie = process.env.SUNO_API_ACCOUNT_MODE === '1' ? process.env.SUNO_COOKIE : cookie && cookie.includes('__client') ? cookie : process.env.SUNO_COOKIE; // Check for bad `Cookie` header (It's too expensive to actually parse the cookies *here*)
   if (!resolvedCookie) {
     logger.info('No cookie provided! Aborting...\nPlease provide a cookie either in the .env file or in the Cookie header of your request.')
     throw new Error('Please provide a cookie either in the .env file or in the Cookie header of your request.');

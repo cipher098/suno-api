@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 async function handle(req: NextRequest, action: string, method: 'GET' | 'POST') {
-  const allowed = method === 'GET' ? ['project', 'status', 'download'] : ['generate', 'export'];
+  const allowed = method === 'GET' ? ['account', 'billing', 'check', 'alignment', 'project', 'status', 'download'] : ['generate', 'export'];
   if (!allowed.includes(action)) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404, headers: corsHeaders });
   try {
     const body = method === 'POST' ? await req.json() : null;
@@ -19,6 +19,10 @@ async function handle(req: NextRequest, action: string, method: 'GET' | 'POST') 
     const query = new URL(req.url).searchParams;
     let result;
     switch (action) {
+      case 'account': result = studio.account(); break;
+      case 'billing': result = await studio.billing(); break;
+      case 'check': result = await studio.check(); break;
+      case 'alignment': result = await studio.alignment(query.get('id') ?? ''); break;
       case 'project': result = await studio.getProject(query.get('id') ?? ''); break;
       case 'status': result = await studio.get((query.get('ids') ?? '').split(',')); break;
       case 'download': result = await studio.getDownload(query.get('id') ?? ''); break;

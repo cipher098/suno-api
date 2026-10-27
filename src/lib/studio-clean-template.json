@@ -1,0 +1,170 @@
+{
+  "title": "",
+  "lyrics": "",
+  "tags": "",
+  "negative_tags": "",
+  "style_summary": "",
+  "caption": "",
+  "state": {
+    "amplitude": 1,
+    "sections": [],
+    "lyricsCorrectionsByClipId": {},
+    "metronome": {
+      "enabled": false,
+      "amplitude": 1
+    },
+    "timing": {
+      "type": "manual",
+      "bps": 2,
+      "bpsAutomation": [],
+      "firstBeatSeconds": 0
+    },
+    "timeSignatureChanges": [
+      {
+        "startBeats": 0,
+        "subdivisionsPerBar": 4,
+        "beatsPerSubdivision": 1
+      }
+    ],
+    "actors": {},
+    "loop": {
+      "enabled": false,
+      "startBeats": 0,
+      "endBeats": 0
+    },
+    "songFadeInBeats": 0,
+    "songFadeOutBeats": 0,
+    "masterRoutingMode": "linear",
+    "routing": {},
+    "recording": {
+      "countInBars": 0,
+      "preRollBars": 0
+    },
+    "midiCcMappings": {},
+    "majorVersion": 2,
+    "limiterLookaheadMs": 0,
+    "midiNotePreviewEnabled": true,
+    "takePreviews": {},
+    "masterSignalChain": [],
+    "midiControllerSignalChain": [],
+    "tracks": [
+      {
+        "type": "audio",
+        "id": "d7d85625-21be-4cdd-a576-c8179bfe563f",
+        "input": null,
+        "color": "#208BFF",
+        "name": "",
+        "height": 86,
+        "solo": false,
+        "mute": false,
+        "arm": false,
+        "amplitude": 1,
+        "balance": 0,
+        "instrument": {
+          "type": "song"
+        },
+        "soloTakeLaneId": null,
+        "takeLanesExpanded": false,
+        "hidden": false,
+        "routingMode": "linear",
+        "faderAutomation": {},
+        "clips": [
+          {
+            "type": "audio",
+            "streaming": false,
+            "id": "fe692b02-2d2f-4ea0-a47b-10317111d9a4",
+            "asset": {
+              "type": "clip",
+              "id": "34f9c63e-6c89-4465-bc26-202544d60093"
+            },
+            "mute": false,
+            "reversed": false,
+            "name": "",
+            "color": "#208BFF",
+            "startBeats": 0,
+            "endBeats": 0,
+            "readStartBeats": 0,
+            "fadeInBeats": 0,
+            "fadeOutBeats": 0,
+            "fadeInCurve": 1,
+            "fadeOutCurve": 1,
+            "transposition": 0,
+            "formantCorrection": 0,
+            "amplitude": 1,
+            "loop": {
+              "enabled": false,
+              "startBeats": 0,
+              "endBeats": 0
+            },
+            "warp": {
+              "enabled": false,
+              "awaitingAnalysis": false
+            },
+            "generatedInPlace": false,
+            "awaitingContentAlignment": false,
+            "clipId": null,
+            "uploadId": null
+          }
+        ],
+        "clipCreationIntents": [],
+        "signalChain": [],
+        "takeLanes": [],
+        "eq": {
+          "enabled": false,
+          "band1": {
+            "type": "highpass",
+            "enabled": false,
+            "frequency": 60,
+            "gain": 0,
+            "q": 0.707
+          },
+          "band2": {
+            "type": "lowshelf",
+            "enabled": true,
+            "frequency": 160,
+            "gain": 0,
+            "q": 0.707
+          },
+          "band3": {
+            "type": "peaking",
+            "enabled": true,
+            "frequency": 450,
+            "gain": 0,
+            "q": 0.707
+          },
+          "band4": {
+            "type": "peaking",
+            "enabled": true,
+            "frequency": 1200,
+            "gain": 0,
+            "q": 0.707
+          },
+          "band5": {
+            "type": "highshelf",
+            "enabled": true,
+            "frequency": 3200,
+            "gain": 0,
+            "q": 0.707
+          },
+          "band6": {
+            "type": "lowpass",
+            "enabled": false,
+            "frequency": 8800,
+            "gain": 0,
+            "q": 0.707
+          }
+        }
+      }
+    ],
+    "markersRegistry": {}
+  },
+  "start_beats": 0,
+  "end_beats": 0,
+  "project_id": null,
+  "studio_project_id": null,
+  "studio_project_version_id": null,
+  "web_client_pathname": "/studio",
+  "downbeats": [],
+  "export_mode": "fullsong_export",
+  "render_engine": "v2"
+}
