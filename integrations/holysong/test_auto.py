@@ -124,4 +124,17 @@ class LocalServerTests(unittest.TestCase):
         self.assertIn(".local/bin/holysong-generate-publish-concurrent-generic-auto",text)
         self.assertNotIn(".local/bin/holysong-generate-publish-concurrent-generic'",text)
 
+class BrowserConfigTests(unittest.TestCase):
+    def test_allowlisted_per_account_settings_forwarded_without_security_overrides(self):
+        env=account_server.server_environment({'SUNO_COOKIE':'__client=fake','TWOCAPTCHA_KEY':'test-key',
+             'BROWSER':'firefox','BROWSER_HEADLESS':'false','SUNO_STUDIO_BROWSER_FALLBACK':'true',
+             'SUNO_API_LOCAL_TOKEN':'attacker','SUNO_API_ACCOUNT_MODE':'0','PATH':'changed'}, {'token':'local-token'})
+        self.assertEqual(env['TWOCAPTCHA_KEY'],'test-key');self.assertEqual(env['BROWSER'],'firefox')
+        self.assertEqual(env['SUNO_STUDIO_BROWSER_FALLBACK'],'true');self.assertEqual(env['SUNO_API_ACCOUNT_MODE'],'1')
+        self.assertEqual(env['SUNO_API_LOCAL_TOKEN'],'local-token');self.assertNotEqual(env.get('PATH'),'changed')
+    def test_worker_defers_captcha_policy_to_repo(self):
+        text=Path(__file__).with_name('studio_flow_generic.py').read_text()
+        self.assertNotIn("check=({'required':False}",text)
+        self.assertIn('Generation auth belongs to the repo',text)
+
 if __name__=='__main__':unittest.main()

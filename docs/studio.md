@@ -6,9 +6,10 @@ unchanged. This is an unofficial, version-sensitive interface, not an official
 Suno API or a guarantee of account entitlement, model availability or downloads.
 
 Use an account with Studio access and an **existing project owned by that account**.
-The methods do not create projects, save/overwrite timelines, launch browsers or
-invoke the CAPTCHA solver. If Suno requires a CAPTCHA, generation stops with
-`CAPTCHA_REQUIRED`. Use the normal Suno UI to resolve account access issues.
+The methods do not create projects or save/overwrite timelines. By default, a
+CAPTCHA requirement stops generation with `CAPTCHA_REQUIRED`. An explicit
+`SUNO_STUDIO_BROWSER_FALLBACK=true` opts into the repository browser/solver helper
+before the Studio generation POST; see the compatibility notes below.
 
 ## Endpoints
 
@@ -106,7 +107,7 @@ do not prove that every supplied word was sung correctly.
 ## Validation and scope
 
 `npm run test:studio` runs offline transport-mocked tests without credentials,
-browser, provider requests or credits. They cover payloads, ownership, CAPTCHA,
+real browser, provider requests or credits. They cover payloads, ownership, CAPTCHA,
 no implicit retries, full-length non-warping state, incomplete/mismatched source,
 polling, pending downloads and signed-destination validation.
 
@@ -132,3 +133,29 @@ Additional Studio routes: GET `account` (authenticated account ID and API versio
 with no account IDs, saved project data or effects. The API still validates
 project ownership, completed source and duration. Explicit custom state remains
 backward compatible. Internal-provider schema compatibility needs ongoing testing.
+
+## Shared generation authentication and optional browser fallback
+
+Legacy generation and Studio now share `SunoApi.getCaptcha()` and
+`GenerationAuthGate`. Legacy calls retain their default browser behavior. Studio
+calls pass an explicit policy from `SUNO_STUDIO_BROWSER_FALLBACK` (default false)
+and use the Studio CAPTCHA-check endpoint. Without a challenge, both return a
+null token without launching a browser. With a challenge and opt-in, Studio calls
+the existing browser/2Captcha procedure and forwards its captured token in the
+unchanged Studio generation payload. Failed/unknown checks stop without submission.
+
+Browser generation interception is installed before UI interaction, matches both
+legacy and web generation routes, and aborts their incidental POSTs. It validates
+the captured account against the authenticated Suno account, rejects missing
+tokens and unknown generation endpoint versions, and closes on success, error or
+a 90-second timeout. Challenges are serialized per cached account instance; tokens
+are not reused across callers. No paid generation POST is automatically retried.
+
+Opt-in requires a working repository browser runtime, `TWOCAPTCHA_KEY` (solver
+usage can incur charges), and the normal `BROWSER*` settings as needed. The
+HolySong account launcher now forwards an explicit allowlist from each profile's
+private credential env file. Restart that account server after changes. No runtime
+or solver credentials are installed by this change; no browser was launched for
+its tests. The optional flow inherits the existing `/create` UI selectors. Mocked
+compatibility tests do not prove that a token captured from today's UI will be
+accepted by the live Studio endpoint or that the selectors still match it.

@@ -4,6 +4,8 @@ import argparse, contextlib, fcntl, hashlib, json, os, re, secrets, signal, sock
 from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
 from urllib.error import HTTPError, URLError
 
+REPO_ENV_KEYS={'TWOCAPTCHA_KEY','BROWSER','BROWSER_HEADLESS','BROWSER_LOCALE','BROWSER_GHOST_CURSOR',
+               'BROWSER_DISABLE_GPU','SUNO_STUDIO_BROWSER_FALLBACK'}
 ROOT=Path.home()/'.config/holysong/suno-accounts'
 class AccountError(RuntimeError): pass
 
@@ -36,7 +38,7 @@ def request(p,path,body=None):
         data=None if body is None else json.dumps(body).encode(),
         headers={'Authorization':'Bearer '+p['token'],'Content-Type':'application/json'})
     try:
-        with build_opener(ProxyHandler({}),NoRedirect()).open(req,timeout=100) as r:
+        with build_opener(ProxyHandler({}),NoRedirect()).open(req,timeout=180 if path=='/api/studio/generate' else 100) as r:
             return json.load(r)
     except HTTPError as e:
         # Only expose a restricted error code, never upstream/network exception objects.
@@ -68,6 +70,13 @@ def environment(path):
         values[key]=value
     return values
 
+def server_environment(values,p):
+    env=dict(os.environ)
+    for key in ('SUNO_COOKIE','SUNO_API_LOCAL_TOKEN','SUNO_EXPECTED_ACCOUNT'):env.pop(key,None)
+    env.update({key:value for key,value in values.items() if key in REPO_ENV_KEYS})
+    env.update(SUNO_COOKIE=values['SUNO_COOKIE'],SUNO_API_ACCOUNT_MODE='1',SUNO_API_LOCAL_TOKEN=p['token'],NEXT_TELEMETRY_DISABLED='1')
+    return env
+
 def ensure(name=None):
     path=profile_path(name);p=profile(name)
     with (path.parent/'server.lock').open('a') as guard:
@@ -84,9 +93,7 @@ def ensure(name=None):
             if '__client=' not in cookie:raise AccountError('SUNO_CLIENT_COOKIE_REQUIRED')
             repo=Path(p['repo']);node=Path(p['node'])
             if not (repo/'.next/BUILD_ID').is_file() or not node.is_file():raise AccountError('ACCOUNT_SERVER_BUILD_REQUIRED')
-            env=dict(os.environ)
-            for key in ('SUNO_COOKIE','SUNO_API_LOCAL_TOKEN','SUNO_EXPECTED_ACCOUNT'):env.pop(key,None)
-            env.update(SUNO_COOKIE=cookie,SUNO_API_ACCOUNT_MODE='1',SUNO_API_LOCAL_TOKEN=p['token'],NEXT_TELEMETRY_DISABLED='1')
+            env=server_environment(values,p)
             with (path.parent/'server.log').open('ab') as log:
                 child=subprocess.Popen([str(node),str(repo/'node_modules/next/dist/bin/next'),'start','--hostname','127.0.0.1','--port',str(p['port'])],
                     cwd=repo,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)

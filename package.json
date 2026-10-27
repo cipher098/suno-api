@@ -14,7 +14,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:studio": "node --test tests/studio.test.cjs",
-    "test:auto": "node --test tests/studio.test.cjs tests/account-server.test.cjs"
+    "test:auto": "node --test tests/studio.test.cjs tests/account-server.test.cjs tests/generation-auth.test.cjs"
   },
   "dependencies": {
     "@2captcha/captcha-solver": "^1.3.0",

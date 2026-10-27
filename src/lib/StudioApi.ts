@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { prepareGenerationAuth, GenerationAuthError } from './GenerationAuth';
 import cleanTemplate from './studio-clean-template.json';
 
 /** Experimental Studio wire API. Shares the caller's Suno session; never retries POSTs. */
@@ -67,7 +68,8 @@ export function fullSongState(input: StudioExportInput) {
 }
 
 export class StudioApi {
-  constructor(private request: StudioRequest, private userId: () => string) {}
+  constructor(private request: StudioRequest, private userId: () => string,
+    private generationAuth?: () => Promise<string | null>) {}
 
   private async ownedProject(id: string) {
     const project = await this.request(`studio/project/${studioId(id)}`, 'GET');
@@ -92,11 +94,17 @@ export class StudioApi {
     const model = text(input.model ?? 'chirp-hawk', 'MODEL', true);
     requireInput(tags.length <= 1000, 'STYLE_TOO_LONG');
     await this.ownedProject(projectId);
-    const captcha = await this.request('c/check', 'POST', { ctype: 'generation' });
-    // Fail closed; no browser or paid CAPTCHA solver is invoked by Studio methods.
-    requireInput(captcha?.required === false, 'CAPTCHA_REQUIRED');
+    let token: string | null;
+    try {
+      token = this.generationAuth ? await this.generationAuth() : await prepareGenerationAuth({
+        check: async () => (await this.check())?.required, allowBrowser: false, solve: async () => null
+      });
+    } catch (error) {
+      if (error instanceof GenerationAuthError) throw new StudioError(error.code);
+      throw new StudioError('GENERATION_AUTH_FAILED', 502);
+    }
     return this.request('generate/v2-web/', 'POST', {
-      token: null, token_provider: 2, task: 'agentic_instant', generation_type: 'TEXT', mv: model,
+      token, token_provider: 2, task: 'agentic_instant', generation_type: 'TEXT', mv: model,
       prompt: '', gpt_description_prompt: `${title}. ${tags}`, make_instrumental: false,
       attached_lyrics: prompt, attached_styles: tags, transaction_uuid: randomUUID(),
       user_uploaded_images_b64: null, override_fields: [], cover_clip_id: null,

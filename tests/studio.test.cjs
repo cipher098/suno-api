@@ -40,7 +40,7 @@ test('Studio generation supplies exact lyrics/styles and one explicit POST', asy
 });
 for (const required of [true, undefined]) test(`CAPTCHA required=${required} stops without generation`, async () => {
   const { api, calls } = setup(path => path === 'c/check' ? { required } : undefined);
-  await assert.rejects(api.generate({ project_id: project, prompt: 'Words', tags: 'pop' }), /CAPTCHA_REQUIRED/);
+  await assert.rejects(api.generate({ project_id: project, prompt: 'Words', tags: 'pop' }), required === true ? /CAPTCHA_REQUIRED/ : /CAPTCHA_CHECK_FAILED/);
   assert.equal(calls.filter(c => c.path === 'generate/v2-web/').length, 0);
 });
 

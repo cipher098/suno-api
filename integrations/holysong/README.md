@@ -21,7 +21,8 @@ already exist; this folder does not provision the app backend or grant rights.
 Use a separate clone of this fork's `feat/account-server-auto` branch and pin a
 tested commit. Node 20+ and the existing HolySong Python/media runtime are needed.
 Dependencies may be installed with `npm ci --ignore-scripts` to avoid installing
-browser binaries; Studio operations never launch a browser or CAPTCHA solver.
+browser binaries; the default Studio flow never launches a browser or CAPTCHA solver.
+Optional browser fallback requires a separately provisioned browser runtime.
 
 ```sh
 npm ci --ignore-scripts
@@ -45,7 +46,7 @@ under `~/.config/holysong/suno-accounts/<name>/profile.json`.
 
 `start` runs the repo's production Next server on **127.0.0.1 only**, with a random
 local API token and a fixed process-level Suno account. Incoming cookies/origins
-are rejected in this opted-in mode; other existing repo API routes are also
+are rejected in this account-server mode; other existing repo API routes are also
 protected by the token. The Studio methods share the repo's `SunoApi` authentication.
 The server can expose other repository functions to authorized local callers, but
 this pipeline uses only Studio operations. Do not invoke unrelated generation
@@ -108,3 +109,25 @@ python3 -m unittest discover -s integrations/holysong -p test_auto.py -v
 Tests are offline/mocked. An online `--check` verifies account/project access without
 music generation, export, artwork or upload. A paid end-to-end song is a separate
 validation; passing the tests/preflight does not certify it.
+
+## Optional Studio browser fallback
+
+The launcher now forwards these per-account env values to the repo process:
+`SUNO_STUDIO_BROWSER_FALLBACK`, `TWOCAPTCHA_KEY`, `BROWSER`, `BROWSER_HEADLESS`,
+`BROWSER_LOCALE`, `BROWSER_GHOST_CURSOR`, and `BROWSER_DISABLE_GPU`. Put them in
+the same private env file referenced by that account profile. Unlisted values
+cannot override the server token, account mode or executable path.
+
+```dotenv
+SUNO_STUDIO_BROWSER_FALLBACK=false
+BROWSER_HEADLESS=true
+BROWSER_LOCALE=en
+BROWSER_GHOST_CURSOR=false
+```
+
+Change the fallback flag to `true` only when you intend to use the separately
+installed repo browser and configured solver. Restart with `holysong-suno-account
+stop --account main`, then `start --account main`, when no chapter is running.
+The worker defers generation-auth decisions to the repo. Standalone read-only
+checks never solve a challenge, and download/alignment/export calls do not launch
+a browser. Live UI and token compatibility remain experimental; tests use mocks.
