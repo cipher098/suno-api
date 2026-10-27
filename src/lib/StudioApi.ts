@@ -69,7 +69,7 @@ export function fullSongState(input: StudioExportInput) {
 
 export class StudioApi {
   constructor(private request: StudioRequest, private userId: () => string,
-    private generationAuth?: () => Promise<string | null>) {}
+    private generationAuth?: () => Promise<string | null | { token: string | null; tokenProvider: number }>) {}
 
   private async ownedProject(id: string) {
     const project = await this.request(`studio/project/${studioId(id)}`, 'GET');
@@ -95,16 +95,22 @@ export class StudioApi {
     requireInput(tags.length <= 1000, 'STYLE_TOO_LONG');
     await this.ownedProject(projectId);
     let token: string | null;
+    let tokenProvider = 2;
     try {
-      token = this.generationAuth ? await this.generationAuth() : await prepareGenerationAuth({
+      const authorization = this.generationAuth ? await this.generationAuth() : await prepareGenerationAuth({
         check: async () => (await this.check())?.required, allowBrowser: false, solve: async () => null
       });
+      if (authorization && typeof authorization === 'object') {
+        token = authorization.token; tokenProvider = authorization.tokenProvider;
+        requireInput(Number.isInteger(tokenProvider) && tokenProvider >= 0 && tokenProvider <= 10, 'CAPTCHA_TOKEN_PROVIDER_UNSUPPORTED');
+      } else token = authorization as string | null;
     } catch (error) {
+      if (error instanceof StudioError) throw error;
       if (error instanceof GenerationAuthError) throw new StudioError(error.code);
       throw new StudioError('GENERATION_AUTH_FAILED', 502);
     }
     return this.request('generate/v2-web/', 'POST', {
-      token, token_provider: 2, task: 'agentic_instant', generation_type: 'TEXT', mv: model,
+      token, token_provider: tokenProvider, task: 'agentic_instant', generation_type: 'TEXT', mv: model,
       prompt: '', gpt_description_prompt: `${title}. ${tags}`, make_instrumental: false,
       attached_lyrics: prompt, attached_styles: tags, transaction_uuid: randomUUID(),
       user_uploaded_images_b64: null, override_fields: [], cover_clip_id: null,
@@ -153,7 +159,7 @@ export class StudioApi {
       try { url = new URL(result.download_url); } catch { throw new StudioError('INVALID_DOWNLOAD_URL', 502); }
       requireInput(url.protocol === 'https:' && !url.username && !url.password && !url.port &&
         url.hostname === 'suno-data-uploads.s3.amazonaws.com' &&
-        (url.pathname === `/studio/uploads/${id}_lyrics.m4a` || url.pathname.startsWith(`/studio/uploads/${id}/`)), 'UNEXPECTED_DOWNLOAD_DESTINATION');
+        (url.pathname === `/studio/uploads/${id}.m4a` || url.pathname === `/studio/uploads/${id}_lyrics.m4a` || url.pathname.startsWith(`/studio/uploads/${id}/`)), 'UNEXPECTED_DOWNLOAD_DESTINATION');
     }
     return result;
   }

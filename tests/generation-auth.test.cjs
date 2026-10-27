@@ -90,3 +90,49 @@ test('real SunoApi wiring shares helper: legacy default enabled, Studio fallback
   assert.equal(solves,2);assert.equal(submits,1);
  }finally{if(old===undefined)delete process.env.SUNO_STUDIO_BROWSER_FALLBACK;else process.env.SUNO_STUDIO_BROWSER_FALLBACK=old;}
 });
+
+test('browser controls support current Create song UI and retain legacy custom textarea',async()=>{
+ const {selectGenerationControls}=require('../src/lib/BrowserGenerationToken.ts');
+ for(const legacy of [true,false]){
+  const visible={first(){return this},waitFor:async()=>{}};const old={count:async()=>legacy?1:0,first(){return this}};
+  const button={first(){return this},waitFor:async()=>{}};
+  const page={locator:selector=>selector==='.custom-textarea:visible'?old:visible,getByRole:(role,options)=>{assert.equal(role,'button');assert.match('Create song',options.name);assert.match('Create',options.name);return button}};
+  const controls=await selectGenerationControls(page);assert.equal(controls.textarea,legacy?old:visible);assert.equal(controls.button,button);
+ }
+});
+
+test('auth browser normalizes remembered Advanced mode and dismisses lyricist onboarding',async()=>{
+ const {prepareGenerationPage}=require('../src/lib/BrowserGenerationToken.ts');let tip=true;const events=[];
+ const page={waitForFunction:async()=>{},getByRole:(role,{name})=>({first(){return this},count:async()=>1,isVisible:async()=>tip,click:async()=>{events.push(name);if(name==='Simple')assert.equal(role,'tab');if(name==='Got it')tip=false}})};
+ await prepareGenerationPage(page);assert.deepEqual(events,['Got it','Simple']);
+});
+
+test('Turnstile browser adapter observes render parameters and delivers one solved token',async()=>{
+ const vm=require('node:vm');const {installTurnstileCapture,solveObservedTurnstile}=require('../src/lib/TurnstileBrowserAuth.ts');
+ let delivered,rendered=0,calls=0;const attributes={};const events={};const document={documentElement:{setAttribute:(k,v)=>attributes[k]=v,getAttribute:k=>attributes[k]??null,removeAttribute:k=>delete attributes[k]},addEventListener:(n,f)=>events[n]=f,dispatchEvent:e=>events[e.type]?.(e)};
+ const context={window:{},document,location:{origin:'https://suno.com',pathname:'/create'},navigator:{userAgent:'test-browser'}};
+ const isolated={window:{},document,CustomEvent:class {constructor(type,{detail}){this.type=type;this.detail=detail}}};
+ const page={addInitScript:async fn=>vm.runInNewContext('('+fn.toString()+')()',context),evaluate:async(fn,arg)=>vm.runInNewContext('('+fn.toString()+')('+JSON.stringify(arg)+')',isolated)};
+ await installTurnstileCapture(page);context.window.turnstile={render(){rendered++;return 'widget'}};
+ context.window.turnstile.render('#widget',{sitekey:'public-sitekey',action:'generation',cData:'challenge-data',callback:t=>delivered=t});
+ await solveObservedTurnstile(page,async params=>{calls++;assert.equal(params.sitekey,'public-sitekey');assert.equal(params.pageurl,'https://suno.com/create');assert.equal(params.data,'challenge-data');return {data:'solved-token'}},new AbortController().signal);
+ assert.equal(delivered,'solved-token');assert.equal(rendered,1);assert.equal(calls,1);
+});
+test('Turnstile rejects unobserved/foreign widgets before spending and never retries a solver error',async()=>{
+ const {solveObservedTurnstile}=require('../src/lib/TurnstileBrowserAuth.ts');let calls=0;
+ for(const params of [null,{sitekey:'x',pageurl:'https://foreign.example/create'}]){
+  await assert.rejects(solveObservedTurnstile({evaluate:async()=>params},async()=>{calls++;return {data:'token'}},new AbortController().signal),/TURNSTILE_PARAMETERS_UNAVAILABLE/);
+ }assert.equal(calls,0);
+ await assert.rejects(solveObservedTurnstile({evaluate:async()=>({sitekey:'public',pageurl:'https://suno.com/create'})},async()=>{calls++;throw Error('private credentials')},new AbortController().signal),/TURNSTILE_SOLVER_FAILED/);assert.equal(calls,1);
+});
+test('Studio forwards the captured token provider rather than assuming the old provider',async()=>{
+ let payload;const api=new StudioApi(async(path,m,body)=>{if(path.startsWith('studio/project/'))return {owner_user_id:'owner'};payload=body;return {clips:[]}},()=> 'owner',async()=>({token:'turnstile-token',tokenProvider:1}));
+ await api.generate({project_id:project,prompt:'Exact Scripture',tags:'upbeat'});assert.equal(payload.token,'turnstile-token');assert.equal(payload.token_provider,1);
+});
+
+test('download accepts observed bare-render M4A path and rejects another recording',async()=>{
+ const render='33333333-3333-4333-8333-333333333333';
+ const api=new StudioApi(async()=>({status:'ready',download_url:`https://suno-data-uploads.s3.amazonaws.com/studio/uploads/${render}.m4a?signature=mock`}),()=> 'owner');
+ assert.equal((await api.getDownload(render)).status,'ready');
+ await assert.rejects(api.getDownload(project),/UNEXPECTED_DOWNLOAD_DESTINATION/);
+});

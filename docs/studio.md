@@ -159,3 +159,29 @@ or solver credentials are installed by this change; no browser was launched for
 its tests. The optional flow inherits the existing `/create` UI selectors. Mocked
 compatibility tests do not prove that a token captured from today's UI will be
 accepted by the live Studio endpoint or that the selectors still match it.
+
+## Live browser compatibility check (2026-10-27)
+
+A MacBook test with an account requiring CAPTCHA completed one paired Studio
+generation, one full-song export, an M4A download and exported word timing. The
+observed generation challenge was hCaptcha hosted on Suno-owned asset domains.
+The helper now uses the challenge frame's visible state rather than an image-host
+regex, and handles current Simple/Advanced tabs, the Create song accessible name
+and the lyricist onboarding tip. Captured token-provider values are preserved.
+
+The test exposed another compatibility issue: the signed export path can be
+`/studio/uploads/RENDER_UUID.m4a`, in addition to the previously observed
+`RENDER_UUID_lyrics.m4a`. Both remain bound to the requested render UUID, HTTPS
+and the exact observed S3 host. Resuming after this validation fix reused the
+existing generation/render IDs without another paid submission.
+
+The downloaded test audio was 264.72 seconds, technically decoded/non-silent,
+with 617 timed-word rows. Recorded balance deltas were 10 Suno credits, no change
+to the download counter, and $0.0024 solver usage. These are one run's measurements,
+not guarantees of future pricing, quotas, fidelity or throughput. The song was
+not published; musical quality and sung Scripture fidelity were not audited.
+
+A Cloudflare iframe can coexist with hCaptcha and does not by itself identify
+the generation challenge. The optional Turnstile adapter is covered by mocked
+tests only; this live run verifies the hCaptcha path. Its DOM/event bridge avoids
+assuming that rebrowser's evaluation world shares page window globals.

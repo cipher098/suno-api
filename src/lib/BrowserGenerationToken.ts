@@ -18,6 +18,7 @@ export async function captureBrowserGenerationToken(options: {
   trigger: (signal: AbortSignal) => Promise<void>;
   close: () => Promise<unknown>;
   acceptBearer: (bearer: string) => void;
+  acceptProvider?: (provider: number) => void;
   timeoutMs?: number;
 }): Promise<string> {
   const controller = new AbortController();
@@ -34,7 +35,12 @@ export async function captureBrowserGenerationToken(options: {
       if (request.method() !== 'POST') throw new GenerationAuthError('CAPTCHA_CAPTURE_INVALID');
       const bearer = request.headers().authorization?.match(/^Bearer (.+)$/)?.[1];
       if (!bearer || subject(bearer) !== options.expectedUser) throw new GenerationAuthError('CAPTCHA_ACCOUNT_MISMATCH');
-      const token = request.postDataJSON()?.token;
+      const payload = request.postDataJSON();
+      const token = payload?.token;
+      if (payload?.token_provider !== undefined) {
+        if (!Number.isInteger(payload.token_provider) || payload.token_provider < 0 || payload.token_provider > 10) throw new GenerationAuthError('CAPTCHA_TOKEN_PROVIDER_UNSUPPORTED');
+        options.acceptProvider?.(payload.token_provider);
+      }
       if (typeof token !== 'string' || !token.trim()) throw new GenerationAuthError('CAPTCHA_TOKEN_MISSING');
       options.acceptBearer(bearer);
       resolveToken(token);
@@ -54,4 +60,34 @@ export async function captureBrowserGenerationToken(options: {
     // Close first; do not remove the interception while a UI generation could be pending.
     await options.close().catch(() => undefined);
   }
+}
+
+/** Prefer stable roles/current visible inputs; retain the older custom textarea. */
+export async function selectGenerationControls(page: any) {
+  await page.locator('textarea:visible').first().waitFor({ state: 'visible', timeout: 15000 });
+  const legacy = page.locator('.custom-textarea:visible');
+  const textarea = await legacy.count() ? legacy.first() : page.locator('textarea:visible').first();
+  const button = page.getByRole('button', { name: /^(Create song|Create)$/, exact: true }).first();
+  await button.waitFor({ state: 'visible', timeout: 15000 });
+  return { textarea, button };
+}
+
+/** Auth probes use Simple mode so a remembered Advanced/lyricist form cannot
+ * redirect typing into a different input. Dismiss the observed onboarding tip. */
+export async function prepareGenerationPage(page: any) {
+  const dismissTip = async () => {
+    const button = page.getByRole('button', { name: 'Got it', exact: true }).first();
+    if (await button.isVisible().catch(() => false)) await button.click();
+  };
+  await dismissTip();
+  const tab = page.getByRole('tab', { name: 'Simple', exact: true }).first();
+  if (await tab.count()) {
+    await tab.click();
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('[role=tab]')).some(
+      el => el.textContent?.trim() === 'Simple' && el.getAttribute('aria-selected') === 'true'), undefined, { timeout: 15000 });
+  } else {
+    const legacy = page.getByRole('button', { name: 'Simple', exact: true }).first();
+    if (await legacy.count()) await legacy.click();
+  }
+  await dismissTip();
 }

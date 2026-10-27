@@ -1,5 +1,6 @@
+import { installTurnstileCapture, solveObservedTurnstile } from './TurnstileBrowserAuth';
 import { GenerationAuthGate, GenerationAuthError } from './GenerationAuth';
-import { captureBrowserGenerationToken } from './BrowserGenerationToken';
+import { captureBrowserGenerationToken, selectGenerationControls, prepareGenerationPage } from './BrowserGenerationToken';
 import { StudioApi, StudioError } from '@/lib/StudioApi';
 import axios, { AxiosInstance } from 'axios';
 import UserAgent from 'user-agents';
@@ -155,7 +156,7 @@ class SunoApi {
         if (typeof claims.sub === 'string' && claims.sub) return claims.sub;
       } catch { /* Fail closed on an unavailable account identity. */ }
       throw new StudioError('ACCOUNT_IDENTITY_UNAVAILABLE', 401);
-    }, () => this.getCaptcha({
+    }, () => this.getGenerationAuth({
       allowBrowser: yn(process.env.SUNO_STUDIO_BROWSER_FALLBACK, { default: false }),
       check: async () => (await this.studio().check())?.required
     }));
@@ -339,14 +340,20 @@ class SunoApi {
    * @returns {string|null} hCaptcha token. If no verification is required, returns null
    */
   public async getCaptcha(options: { allowBrowser?: boolean; check?: () => Promise<unknown> } = {}): Promise<string|null> {
-    return this.generationAuthGate.prepare({
-      check: options.check ?? (() => this.captchaRequired()),
-      allowBrowser: options.allowBrowser ?? true,
-      solve: () => this.solveCaptchaInBrowser()
-    });
+    return (await this.getGenerationAuth(options)).token;
   }
 
-  private async solveCaptchaInBrowser(): Promise<string> {
+  private async getGenerationAuth(options: { allowBrowser?: boolean; check?: () => Promise<unknown> } = {}) {
+    let tokenProvider = 2;
+    const token = await this.generationAuthGate.prepare({
+      check: options.check ?? (() => this.captchaRequired()),
+      allowBrowser: options.allowBrowser ?? true,
+      solve: () => this.solveCaptchaInBrowser(provider => { tokenProvider = provider; })
+    });
+    return { token, tokenProvider };
+  }
+
+  private async solveCaptchaInBrowser(acceptProvider?: (provider: number) => void): Promise<string> {
     if (!process.env.TWOCAPTCHA_KEY?.trim()) throw new GenerationAuthError('CAPTCHA_SOLVER_KEY_REQUIRED');
     let expectedUser: string;
     try { expectedUser = JSON.parse(Buffer.from(this.currentToken!.split('.')[1], 'base64url').toString()).sub; }
@@ -356,15 +363,16 @@ class SunoApi {
     const browser = await this.launchBrowser();
     try {
       const page = await browser.newPage();
+      await installTurnstileCapture(page);
       return await captureBrowserGenerationToken({
-        page, expectedUser, close: async () => { await browser.browser()?.close(); },
+        page, expectedUser, acceptProvider, close: async () => { await browser.browser()?.close(); },
         acceptBearer: bearer => { this.currentToken = bearer; },
         trigger: async signal => {
           await page.goto('https://suno.com/create', { referer: 'https://www.google.com/', waitUntil: 'domcontentloaded', timeout: 60000 });
 
           logger.info('Waiting for Suno interface to load');
-          // await page.locator('.react-aria-GridList').waitFor({ timeout: 60000 });
-          await page.waitForResponse('**/api/project/**\\?**', { timeout: 60000 }); // wait for song list API call
+          await prepareGenerationPage(page);
+          const { textarea, button } = await selectGenerationControls(page);
 
           if (this.ghostCursorEnabled)
             this.cursor = await createCursor(page);
@@ -375,22 +383,32 @@ class SunoApi {
             // await this.click(page, { x: 318, y: 13 });
           } catch(e) {}
 
-          const textarea = page.locator('.custom-textarea');
           await this.click(textarea);
-          await textarea.pressSequentially('Lorem ipsum', { delay: 80 });
+          await textarea.fill('A gentle acoustic instrumental with warm guitar and soft piano, a steady rhythm and a calm uplifting melody.');
 
-          const button = page.locator('button[aria-label="Create"]').locator('div.flex');
           await this.click(button);
 
-          const frame = page.frameLocator('iframe[title*="hCaptcha"]');
+          // Detect the current provider; the old image listener only supports hCaptcha.
+          await page.waitForFunction(() => document.documentElement.hasAttribute('data-suno-turnstile-params') ||
+            document.querySelector('iframe[title*="hCaptcha"]'), undefined, { timeout: 25000 });
+          const turnstile = await page.evaluate(() => document.documentElement.hasAttribute('data-suno-turnstile-params'));
+          if (turnstile) {
+            logger.info('Solving observed Turnstile challenge');
+            await solveObservedTurnstile(page, params => this.solver.cloudflareTurnstile(params), signal);
+            return;
+          }
+          const frame = page.frameLocator('iframe[title*="hCaptcha challenge"]');
           const challenge = frame.locator('.challenge-container');
           try {
             let wait = true;
             while (!signal.aborted) {
-              if (wait)
-                await waitForRequests(page, signal);
+              if (wait) {
+                await challenge.waitFor({ state: 'visible', timeout: 30000 });
+              }
               if (signal.aborted) return;
-              const drag = (await challenge.locator('.prompt-text').first().innerText()).toLowerCase().includes('drag');
+              const prompt = challenge.locator('.prompt-text').first();
+              const promptText = await prompt.count() ? await prompt.innerText() : await challenge.innerText();
+              const drag = promptText.toLowerCase().includes('drag');
               let captcha: any;
               for (let j = 0; j < 3 && !signal.aborted; j++) { // try several times because sometimes 2Captcha could return an error
                 try {
@@ -589,6 +607,7 @@ class SunoApi {
     continue_at?: number
   ): Promise<AudioInfo[]> {
     await this.keepAlive();
+    const authorization = await this.getGenerationAuth();
     const payload: any = {
       make_instrumental: make_instrumental,
       mv: model || DEFAULT_MODEL,
@@ -597,7 +616,8 @@ class SunoApi {
       continue_at: continue_at,
       continue_clip_id: continue_clip_id,
       task: task,
-      token: await this.getCaptcha()
+      token: authorization.token,
+      ...(authorization.token ? { token_provider: authorization.tokenProvider } : {})
     };
     if (isCustom) {
       payload.tags = tags;
